@@ -1,5 +1,5 @@
 /* StreamPlay Service Worker — basic offline shell + install support */
-const CACHE = 'streamplay-v1';
+const CACHE = 'streamplay-v5';
 const ASSETS = [
   './',
   './index.html',
