@@ -2,14 +2,54 @@
   'use strict';
 
   // ===== State =====
+  // ===== Storage helpers =====
+  const STORAGE = {
+    favs: 'sp_favs_v2',
+    history: 'sp_history',
+    playlists: 'sp_playlists',
+    theme: 'sp_theme',
+  };
+
+  function loadJSON(key, fallback) {
+    try {
+      const v = JSON.parse(localStorage.getItem(key));
+      return v ?? fallback;
+    } catch {
+      return fallback;
+    }
+  }
+
+  function saveJSON(key, value) {
+    localStorage.setItem(key, JSON.stringify(value));
+  }
+
+  // Migrate old favorites (array of URLs) → global objects
+  function loadFavorites() {
+    let favs = loadJSON(STORAGE.favs, null);
+    if (!favs) {
+      const old = loadJSON('sp_favs', []);
+      if (Array.isArray(old) && old.length && typeof old[0] === 'string') {
+        favs = old.map((url) => ({ url, name: url.split('/').pop() || 'Canal', logo: '', group: 'Favoritos' }));
+        saveJSON(STORAGE.favs, favs);
+      } else {
+        favs = [];
+      }
+    }
+    return Array.isArray(favs) ? favs : [];
+  }
+
   const state = {
     channels: [],
     filtered: [],
     currentIndex: -1,
+    currentChannel: null,
     hls: null,
-    favorites: new Set(JSON.parse(localStorage.getItem('sp_favs') || '[]')),
-    theme: localStorage.getItem('sp_theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'),
-    viewMode: 'all', // 'all' | 'favorites'
+    favorites: loadFavorites(), // [{url,name,logo,group}]
+    history: loadJSON(STORAGE.history, []), // [{url,name,logo,group,ts}]
+    playlists: loadJSON(STORAGE.playlists, []), // [{id,name,url}]
+    theme: localStorage.getItem(STORAGE.theme) || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'),
+    viewMode: 'all', // 'all' | 'favorites' | 'history'
+    lastPlaylistUrl: '',
   };
 
   // ===== DOM =====
@@ -24,6 +64,7 @@
     installBtn: $('#installBtn'),
     playlistUrl: $('#playlistUrl'),
     loadUrlBtn: $('#loadUrlBtn'),
+    savePlaylistBtn: $('#savePlaylistBtn'),
     fileInput: $('#fileInput'),
     searchInput: $('#searchInput'),
     clearSearch: $('#clearSearch'),
@@ -50,16 +91,21 @@
     nowPlaying: document.querySelector('.now-playing'),
     tabAll: $('#tabAll'),
     tabFavorites: $('#tabFavorites'),
+    tabHistory: $('#tabHistory'),
     favBadge: $('#favBadge'),
+    histBadge: $('#histBadge'),
+    savedList: $('#savedList'),
+    clearHistoryBtn: $('#clearHistoryBtn'),
   };
 
   // ===== Theme =====
   function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('sp_theme', theme);
+    localStorage.setItem(STORAGE.theme, theme);
     state.theme = theme;
-    const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.content = theme === 'dark' ? '#0f172a' : '#f8fafc';
+    document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => {
+      meta.content = theme === 'dark' ? '#0f172a' : '#f8fafc';
+    });
   }
   applyTheme(state.theme);
 
@@ -143,10 +189,13 @@
       let text;
       if (isFile) {
         text = await source.text();
+        state.lastPlaylistUrl = '';
       } else {
         const res = await fetch(source, { mode: 'cors' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         text = await res.text();
+        state.lastPlaylistUrl = source;
+        if (els.playlistUrl) els.playlistUrl.value = source;
       }
 
       if (!text.includes('#EXTM3U') && !text.includes('#EXTINF')) {
@@ -158,13 +207,12 @@
         throw new Error('No se encontraron canales en la lista');
       }
 
+      state.viewMode = 'all';
+      setViewMode('all', true);
       populateGroups();
       filterChannels();
       showToast(`Cargados ${state.channels.length} canales`);
-      // On mobile open channels view
-      if (window.innerWidth <= 900) {
-        openChannelsView();
-      }
+      if (window.innerWidth <= 900) openChannelsView();
     } catch (err) {
       console.error(err);
       showToast('Error al cargar la lista: ' + (err.message || 'desconocido'));
@@ -187,11 +235,23 @@
   }
 
   // ===== Filter & Render =====
-  function updateFavBadge() {
-    const n = state.favorites.size;
+  function isFavorite(url) {
+    return state.favorites.some((f) => f.url === url);
+  }
+
+  function updateBadges() {
+    const nFav = state.favorites.length;
     if (els.favBadge) {
-      els.favBadge.textContent = n;
-      els.favBadge.hidden = n === 0;
+      els.favBadge.textContent = nFav;
+      els.favBadge.hidden = nFav === 0;
+    }
+    const nHist = state.history.length;
+    if (els.histBadge) {
+      els.histBadge.textContent = nHist;
+      els.histBadge.hidden = nHist === 0;
+    }
+    if (els.clearHistoryBtn) {
+      els.clearHistoryBtn.hidden = nHist === 0;
     }
   }
 
@@ -199,34 +259,36 @@
     const q = els.searchInput.value.trim().toLowerCase();
     const group = els.groupFilter.value;
 
-    let list = state.channels;
-
-    // Favorites-only view: show only channels that are favorited (even if not in current playlist, we only have current playlist channels)
+    let list;
     if (state.viewMode === 'favorites') {
-      list = state.channels.filter(c => state.favorites.has(c.url));
+      list = state.favorites.map((f) => ({ ...f, group: f.group || 'Favoritos' }));
+    } else if (state.viewMode === 'history') {
+      list = state.history.map((h) => ({ ...h, group: h.group || 'Recientes' }));
+    } else {
+      list = state.channels;
     }
 
-    state.filtered = list.filter(c => {
-      const matchQ = !q || c.name.toLowerCase().includes(q) || c.group.toLowerCase().includes(q);
+    state.filtered = list.filter((c) => {
+      const matchQ = !q || (c.name || '').toLowerCase().includes(q) || (c.group || '').toLowerCase().includes(q);
       const matchG = !group || c.group === group;
       return matchQ && matchG;
     });
 
-    // Favorites first when viewing all and no search/filter
     if (state.viewMode === 'all' && !q && !group) {
       state.filtered.sort((a, b) => {
-        const af = state.favorites.has(a.url) ? 0 : 1;
-        const bf = state.favorites.has(b.url) ? 0 : 1;
+        const af = isFavorite(a.url) ? 0 : 1;
+        const bf = isFavorite(b.url) ? 0 : 1;
         return af - bf;
       });
     }
 
-    updateFavBadge();
+    updateBadges();
     renderChannelList();
   }
 
   function renderChannelList() {
-    const label = state.viewMode === 'favorites' ? 'favorito' : 'canal';
+    const labels = { all: 'canal', favorites: 'favorito', history: 'reciente' };
+    const label = labels[state.viewMode] || 'canal';
     els.channelCount.textContent = `${state.filtered.length} ${label}${state.filtered.length !== 1 ? 's' : ''}`;
 
     if (state.filtered.length === 0) {
@@ -236,6 +298,9 @@
       if (state.viewMode === 'favorites') {
         els.emptyState.querySelector('p').textContent = 'No tienes favoritos';
         els.emptyState.querySelector('.hint').textContent = 'Marca canales con el corazón para verlos aquí';
+      } else if (state.viewMode === 'history') {
+        els.emptyState.querySelector('p').textContent = 'Sin historial';
+        els.emptyState.querySelector('.hint').textContent = 'Los canales que reproduzcas aparecerán aquí';
       } else if (state.channels.length > 0) {
         els.emptyState.querySelector('p').textContent = 'No hay resultados';
         els.emptyState.querySelector('.hint').textContent = 'Prueba otro término o grupo';
@@ -248,16 +313,13 @@
 
     els.emptyState.hidden = true;
     const frag = document.createDocumentFragment();
+    const currentUrl = state.currentChannel?.url;
 
-    state.filtered.forEach((ch, idx) => {
+    state.filtered.forEach((ch) => {
       const item = document.createElement('div');
       item.className = 'channel-item';
-      if (state.currentIndex >= 0 && state.channels[state.currentIndex] === ch) {
-        item.classList.add('active');
-      }
-      if (state.favorites.has(ch.url)) {
-        item.classList.add('favorited');
-      }
+      if (currentUrl && ch.url === currentUrl) item.classList.add('active');
+      if (isFavorite(ch.url)) item.classList.add('favorited');
 
       // Logo
       if (ch.logo) {
@@ -291,7 +353,7 @@
       favSvg.setAttribute('width', '16');
       favSvg.setAttribute('height', '16');
       favSvg.setAttribute('viewBox', '0 0 24 24');
-      favSvg.setAttribute('fill', state.favorites.has(ch.url) ? 'currentColor' : 'none');
+      favSvg.setAttribute('fill', isFavorite(ch.url) ? 'currentColor' : 'none');
       favSvg.setAttribute('stroke', 'currentColor');
       favSvg.setAttribute('stroke-width', '2');
       favSvg.classList.add('channel-fav');
@@ -327,15 +389,31 @@
   }
 
   // ===== Playback =====
+  function addToHistory(ch) {
+    if (!ch?.url) return;
+    const entry = {
+      url: ch.url,
+      name: ch.name || 'Canal',
+      logo: ch.logo || '',
+      group: ch.group || '',
+      ts: Date.now(),
+    };
+    state.history = [entry, ...state.history.filter((h) => h.url !== ch.url)].slice(0, 40);
+    saveJSON(STORAGE.history, state.history);
+    updateBadges();
+  }
+
   function playChannel(ch) {
-    const idx = state.channels.indexOf(ch);
+    state.currentChannel = ch;
+    const idx = state.channels.findIndex((c) => c.url === ch.url);
     state.currentIndex = idx;
 
-    // Update UI
+    addToHistory(ch);
+
     els.currentTitle.textContent = ch.name;
-    els.currentGroup.textContent = ch.group;
+    els.currentGroup.textContent = ch.group || '';
     els.infoTitle.textContent = ch.name;
-    els.infoMeta.textContent = ch.group + (ch.tvgId ? ` · ${ch.tvgId}` : '');
+    els.infoMeta.textContent = (ch.group || '') + (ch.tvgId ? ` · ${ch.tvgId}` : '');
 
     if (ch.logo) {
       els.currentLogo.src = ch.logo;
@@ -352,11 +430,7 @@
     els.copyUrlBtn.disabled = false;
     updateFavBtn(ch);
 
-    // Highlight in list
-    $$('.channel-item').forEach(el => el.classList.remove('active'));
-    // Re-render would be heavy; just mark active if visible
-    filterChannels(); // simple way to refresh active state
-
+    filterChannels();
     startPlayback(ch.url);
   }
 
@@ -480,27 +554,35 @@
   els.retryBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     hideError();
-    if (state.currentIndex >= 0) {
-      startPlayback(state.channels[state.currentIndex].url);
+    if (state.currentChannel?.url) {
+      startPlayback(state.currentChannel.url);
     }
   });
 
   // ===== Favorites =====
   function toggleFavorite(ch) {
-    if (state.favorites.has(ch.url)) {
-      state.favorites.delete(ch.url);
+    if (!ch?.url) return;
+    const idx = state.favorites.findIndex((f) => f.url === ch.url);
+    if (idx >= 0) {
+      state.favorites.splice(idx, 1);
       showToast('Eliminado de favoritos');
     } else {
-      state.favorites.add(ch.url);
+      state.favorites.unshift({
+        url: ch.url,
+        name: ch.name || 'Canal',
+        logo: ch.logo || '',
+        group: ch.group || 'Favoritos',
+      });
       showToast('Añadido a favoritos');
     }
-    localStorage.setItem('sp_favs', JSON.stringify([...state.favorites]));
+    saveJSON(STORAGE.favs, state.favorites);
     updateFavBtn(ch);
     filterChannels();
   }
 
   function updateFavBtn(ch) {
-    const isFav = state.favorites.has(ch.url);
+    if (!ch) return;
+    const isFav = isFavorite(ch.url);
     els.favBtn.classList.toggle('active', isFav);
     const svg = els.favBtn.querySelector('svg');
     if (svg) {
@@ -510,16 +592,13 @@
   }
 
   els.favBtn.addEventListener('click', () => {
-    if (state.currentIndex >= 0) {
-      toggleFavorite(state.channels[state.currentIndex]);
-    }
+    if (state.currentChannel) toggleFavorite(state.currentChannel);
   });
 
   els.copyUrlBtn.addEventListener('click', async () => {
-    if (state.currentIndex < 0) return;
-    const url = state.channels[state.currentIndex].url;
+    if (!state.currentChannel?.url) return;
     try {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(state.currentChannel.url);
       showToast('URL copiada al portapapeles');
     } catch {
       showToast('No se pudo copiar');
@@ -615,7 +694,7 @@
     if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
       e.preventDefault();
       if (state.filtered.length === 0) return;
-      let next = state.filtered.findIndex(c => c === state.channels[state.currentIndex]);
+      let next = state.filtered.findIndex((c) => c.url === state.currentChannel?.url);
       if (next < 0) next = 0;
       else next = e.key === 'ArrowDown' ? (next + 1) % state.filtered.length : (next - 1 + state.filtered.length) % state.filtered.length;
       playChannel(state.filtered[next]);
@@ -633,17 +712,96 @@
     }
   });
 
-  // ===== View tabs (Todos / Favoritos) =====
-  function setViewMode(mode) {
+  // ===== View tabs (Todos / Favoritos / Recientes) =====
+  function setViewMode(mode, skipFilter) {
     state.viewMode = mode;
     els.tabAll?.classList.toggle('active', mode === 'all');
     els.tabFavorites?.classList.toggle('active', mode === 'favorites');
-    // Reset group filter optional — keep it
-    filterChannels();
+    els.tabHistory?.classList.toggle('active', mode === 'history');
+    // Group filter only makes sense for "all"
+    if (els.groupFilter) {
+      els.groupFilter.disabled = mode !== 'all';
+      if (mode !== 'all') els.groupFilter.value = '';
+    }
+    if (!skipFilter) filterChannels();
   }
 
   els.tabAll?.addEventListener('click', () => setViewMode('all'));
   els.tabFavorites?.addEventListener('click', () => setViewMode('favorites'));
+  els.tabHistory?.addEventListener('click', () => setViewMode('history'));
+
+  // ===== Saved playlists =====
+  function renderSavedPlaylists() {
+    if (!els.savedList) return;
+    els.savedList.innerHTML = '';
+    if (!state.playlists.length) {
+      const empty = document.createElement('div');
+      empty.className = 'saved-empty';
+      empty.textContent = 'Ninguna lista guardada aún';
+      els.savedList.appendChild(empty);
+      return;
+    }
+    state.playlists.forEach((pl) => {
+      const row = document.createElement('div');
+      row.className = 'saved-item';
+      row.title = pl.url;
+      const name = document.createElement('span');
+      name.className = 'saved-item-name';
+      name.textContent = pl.name;
+      const del = document.createElement('button');
+      del.className = 'saved-item-del';
+      del.type = 'button';
+      del.title = 'Eliminar';
+      del.textContent = '×';
+      del.addEventListener('click', (e) => {
+        e.stopPropagation();
+        state.playlists = state.playlists.filter((p) => p.id !== pl.id);
+        saveJSON(STORAGE.playlists, state.playlists);
+        renderSavedPlaylists();
+        showToast('Lista eliminada');
+      });
+      row.appendChild(name);
+      row.appendChild(del);
+      row.addEventListener('click', () => {
+        els.playlistUrl.value = pl.url;
+        loadPlaylist(pl.url);
+      });
+      els.savedList.appendChild(row);
+    });
+  }
+
+  els.savePlaylistBtn?.addEventListener('click', () => {
+    const url = (els.playlistUrl.value || state.lastPlaylistUrl || '').trim();
+    if (!url) {
+      showToast('Carga o pega una URL de lista primero');
+      return;
+    }
+    if (state.playlists.some((p) => p.url === url)) {
+      showToast('Esta lista ya está guardada');
+      return;
+    }
+    let name = prompt('Nombre para esta lista:', url.split('/').pop() || 'Mi lista');
+    if (name === null) return;
+    name = (name || '').trim() || 'Mi lista';
+    state.playlists.unshift({
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      name,
+      url,
+    });
+    saveJSON(STORAGE.playlists, state.playlists);
+    renderSavedPlaylists();
+    showToast('Lista guardada');
+  });
+
+  els.clearHistoryBtn?.addEventListener('click', () => {
+    if (!state.history.length) return;
+    if (!confirm('¿Borrar todo el historial de canales recientes?')) return;
+    state.history = [];
+    saveJSON(STORAGE.history, state.history);
+    updateBadges();
+    if (state.viewMode === 'history') filterChannels();
+    showToast('Historial borrado');
+  });
 
   // ===== PWA Install =====
   let deferredPrompt = null;
@@ -675,5 +833,6 @@
   els.emptyState.hidden = false;
   hideError();
   showLoading(false);
-  updateFavBadge();
+  updateBadges();
+  renderSavedPlaylists();
 })();

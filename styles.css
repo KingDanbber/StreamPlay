@@ -307,9 +307,98 @@ html, body {
   justify-content: center;
 }
 
+.saved-playlists {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.saved-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.btn-text {
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  cursor: pointer;
+  font-family: inherit;
+  padding: 2px 4px;
+}
+
+.btn-text:hover {
+  color: var(--accent);
+}
+
+.saved-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.saved-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: background var(--transition);
+}
+
+.saved-item:hover {
+  background: var(--bg-hover);
+}
+
+.saved-item-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.8rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-primary);
+}
+
+.saved-item-del {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.saved-item-del:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+}
+
+.saved-empty {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  padding: 4px 0;
+}
+
 .view-tabs {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   background: var(--bg-tertiary);
   padding: 4px;
   border-radius: var(--radius-sm);
@@ -320,17 +409,19 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 4px;
   height: 36px;
   border: none;
   background: transparent;
   color: var(--text-secondary);
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 600;
   border-radius: 6px;
   cursor: pointer;
   transition: background var(--transition), color var(--transition);
   font-family: inherit;
+  white-space: nowrap;
+  padding: 0 4px;
 }
 
 .view-tab:hover {
@@ -360,6 +451,11 @@ html, body {
   color: #fff;
   border-radius: 10px;
   line-height: 1;
+}
+
+.fav-badge-muted {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
 }
 
 .filters {
