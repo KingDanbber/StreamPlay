@@ -158,7 +158,14 @@ html, body {
 
 .load-section {
   display: flex;
-  gap: 6px;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.load-section .url-input {
+  flex: 1 1 140px;
+  min-width: 0;
 }
 
 .url-input {
@@ -496,6 +503,122 @@ html, body {
   padding: 4px 0;
 }
 
+.btn-export {
+  height: 34px;
+  min-width: auto;
+  padding: 0 10px;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: inherit;
+}
+
+@media (max-width: 400px) {
+  .btn-export span {
+    display: none;
+  }
+}
+
+.settings-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.settings-panel[hidden] {
+  display: none !important;
+}
+
+.settings-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.settings-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.settings-hint {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.filters-row {
+  align-items: stretch;
+}
+
+.filters-row .group-select {
+  flex: 1 1 100px;
+}
+
+.epg-bar {
+  display: flex;
+  gap: 16px;
+  padding: 8px 16px;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+  font-size: 0.8rem;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.epg-bar[hidden] {
+  display: none !important;
+}
+
+.epg-label {
+  display: block;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.epg-now, .epg-next {
+  min-width: 0;
+  flex: 1;
+}
+
+#epgNowTitle, #epgNextTitle {
+  color: var(--text-primary);
+  font-weight: 500;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.track-selects {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.track-select {
+  height: 34px;
+  max-width: 110px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.75rem;
+  outline: none;
+  cursor: pointer;
+}
+
 /* Channel List */
 .channel-list {
   flex: 1;
@@ -777,7 +900,8 @@ html, body {
   background: var(--bg-secondary);
   border-top: 1px solid var(--border);
   flex-shrink: 0;
-  gap: 12px;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .info-left {
@@ -899,15 +1023,29 @@ html, body {
   }
 
   .sidebar-header {
-    padding: 12px;
-    gap: 12px;
+    padding: 12px 12px 14px;
+    gap: 14px;
+    max-height: 58%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .load-section {
+    gap: 8px;
+  }
+
+  .load-section .url-input {
+    flex: 1 1 100%;
+    width: 100%;
+    order: -1;
   }
 
   .url-input,
   .search-box input,
-  .group-select {
-    height: 44px; /* better touch target */
-    font-size: 16px; /* prevent iOS zoom */
+  .group-select,
+  .track-select {
+    height: 44px;
+    font-size: 16px;
   }
 
   .btn-primary,
@@ -915,6 +1053,59 @@ html, body {
   .file-btn {
     height: 44px;
     min-width: 44px;
+    flex: 1 1 auto;
+  }
+
+  .load-section .btn-primary,
+  .load-section .btn-secondary,
+  .load-section .file-btn {
+    flex: 1 1 calc(20% - 8px);
+    min-width: 44px;
+  }
+
+  .filters,
+  .filters-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    align-items: stretch;
+  }
+
+  .filters-row .group-select {
+    flex: none;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .filters-row .channel-count {
+    grid-column: 1 / -1;
+    padding: 2px 0 0;
+    text-align: left;
+  }
+
+  .filters-row .btn-export {
+    grid-column: 1 / -1;
+    width: 100%;
+    height: 40px;
+    justify-content: center;
+  }
+
+  .view-tabs {
+    gap: 4px;
+    padding: 4px;
+  }
+
+  .view-tab {
+    height: 40px;
+    font-size: 0.72rem;
+    gap: 3px;
+    padding: 0 2px;
+  }
+
+  .fav-badge {
+    min-width: 16px;
+    height: 16px;
+    font-size: 0.6rem;
   }
 
   .preset-btn {
@@ -932,6 +1123,43 @@ html, body {
   .channel-logo-placeholder {
     width: 44px;
     height: 44px;
+  }
+
+  .player-info {
+    padding: 10px 12px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .info-left {
+    flex: 1 1 100%;
+    order: 1;
+  }
+
+  .track-selects {
+    order: 2;
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .track-select {
+    flex: 1;
+    max-width: none;
+  }
+
+  .info-actions {
+    order: 3;
+    margin-left: auto;
+  }
+
+  .epg-bar {
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .settings-panel {
+    gap: 12px;
   }
 }
 
@@ -952,28 +1180,111 @@ html, body {
 @media (max-width: 480px) {
   :root {
     --sidebar-w: 100%;
+    --header-h: 52px;
+  }
+
+  .header {
+    padding: 0 8px 0 4px;
   }
 
   .logo span {
-    font-size: 1rem;
+    font-size: 0.95rem;
   }
 
-  .now-playing-info h2 {
-    max-width: 180px;
-    font-size: 0.9rem;
+  .logo svg {
+    width: 22px;
+    height: 22px;
   }
 
-  .player-info {
-    padding: 10px 12px;
+  .btn-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .sidebar-header {
+    padding: 10px;
+    gap: 12px;
+    max-height: 55%;
+  }
+
+  .presets-label {
+    font-size: 0.7rem;
   }
 
   .preset-btns {
-    gap: 4px;
+    gap: 6px;
   }
 
   .preset-btn {
-    padding: 4px 8px;
-    font-size: 0.7rem;
+    padding: 7px 10px;
+    font-size: 0.75rem;
+    min-height: 34px;
+  }
+
+  .view-tab {
+    font-size: 0.68rem;
+    height: 38px;
+  }
+
+  .view-tab svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  /* Hide "Favoritos" / "Recientes" text labels if too tight — keep icons + badge */
+  .view-tab {
+    flex-direction: column;
+    gap: 1px;
+    line-height: 1.1;
+  }
+
+  .filters,
+  .filters-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .filters-row .channel-count {
+    grid-column: 1;
+  }
+
+  .now-playing-info h2 {
+    max-width: 160px;
+    font-size: 0.85rem;
+  }
+
+  .player-info {
+    padding: 10px;
+  }
+
+  .info-left h3 {
+    font-size: 0.9rem;
+  }
+
+  .info-actions .btn-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .saved-list {
+    max-height: 90px;
+  }
+
+  .channel-list {
+    padding: 6px 8px 12px;
+  }
+}
+
+@media (max-width: 360px) {
+  .load-section .btn-primary,
+  .load-section .btn-secondary,
+  .load-section .file-btn {
+    flex: 1 1 calc(33% - 8px);
+    min-width: 40px;
+  }
+
+  .view-tab {
+    font-size: 0.62rem;
   }
 }
 
