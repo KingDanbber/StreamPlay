@@ -1,5 +1,5 @@
 /* StreamPlay Service Worker — basic offline shell + install support */
-const CACHE = 'streamplay-v1';
+const CACHE = 'streamplay-v3';
 const ASSETS = [
   './',
   './index.html',
@@ -9,7 +9,8 @@ const ASSETS = [
   './icon-192.png',
   './icon-512.png',
   './favicon-32.png',
-  './apple-touch-icon.png'
+  './apple-touch-icon.png',
+  './playlists/canalesmexico.m3u'
 ];
 
 self.addEventListener('install', (event) => {

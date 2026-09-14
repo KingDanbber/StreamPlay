@@ -1345,14 +1345,21 @@
   els.hideSidebarBtn?.addEventListener('click', () => toggleSidebarHidden());
   els.showSidebarBtn?.addEventListener('click', () => toggleSidebarHidden(true));
 
-  // Restore TV layout prefs
-  if (localStorage.getItem('sp_sidebar_compact') === '1') {
-    els.sidebar.classList.add('compact');
-    if (els.compactSidebarBtn) els.compactSidebarBtn.textContent = 'Mostrar controles';
-  }
-  if (localStorage.getItem('sp_sidebar_hidden') === '1') {
-    els.sidebar.classList.add('sidebar-hidden');
-    if (els.showSidebarBtn) els.showSidebarBtn.hidden = false;
+  // Restore layout prefs only on large screens (TV/desktop). Mobile uses bottom nav.
+  const isLarge = window.matchMedia('(min-width: 901px)').matches;
+  if (isLarge) {
+    if (localStorage.getItem('sp_sidebar_compact') === '1') {
+      els.sidebar.classList.add('compact');
+      if (els.compactSidebarBtn) els.compactSidebarBtn.textContent = 'Mostrar controles';
+    }
+    if (localStorage.getItem('sp_sidebar_hidden') === '1') {
+      els.sidebar.classList.add('sidebar-hidden');
+      if (els.showSidebarBtn) els.showSidebarBtn.hidden = false;
+    }
+  } else {
+    els.sidebar.classList.remove('sidebar-hidden', 'compact');
+    if (els.showSidebarBtn) els.showSidebarBtn.hidden = true;
+    if (els.compactSidebarBtn) els.compactSidebarBtn.textContent = 'Maximizar lista';
   }
 
   // Initial empty state — force clean UI

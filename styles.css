@@ -487,6 +487,19 @@ body.tv-nav .channel-item {
   background: var(--bg-tertiary);
   padding: 4px;
   border-radius: var(--radius-sm);
+  position: relative;
+  z-index: 2;
+}
+
+.search-box {
+  position: relative;
+  z-index: 2;
+}
+
+.filters,
+.filters-row {
+  position: relative;
+  z-index: 2;
 }
 
 .view-tab {
@@ -1150,11 +1163,19 @@ body.tv-nav .channel-item {
   }
 
   .sidebar-header {
-    padding: 12px 12px 14px;
-    gap: 14px;
-    max-height: 58%;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    padding: 10px 12px 12px;
+    gap: 10px;
+    max-height: none;
+    overflow: visible;
+  }
+
+  /* Hide TV-only controls on phones; use bottom nav instead */
+  #hideSidebarBtn {
+    display: none !important;
+  }
+
+  .sidebar-toolbar {
+    justify-content: flex-start;
   }
 
   .load-section {
@@ -1330,8 +1351,14 @@ body.tv-nav .channel-item {
 
   .sidebar-header {
     padding: 10px;
-    gap: 12px;
-    max-height: 55%;
+    gap: 10px;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .sidebar-toolbar .toolbar-toggle {
+    font-size: 0.7rem;
+    padding: 8px 10px;
   }
 
   .presets-label {
