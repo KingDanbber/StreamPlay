@@ -459,9 +459,12 @@
     const frag = document.createDocumentFragment();
     const currentUrl = state.currentChannel?.url;
 
-    state.filtered.forEach((ch) => {
+    state.filtered.forEach((ch, idx) => {
       const item = document.createElement('div');
       item.className = 'channel-item';
+      item.setAttribute('role', 'button');
+      item.setAttribute('tabindex', '0');
+      item.dataset.index = String(idx);
       if (currentUrl && ch.url === currentUrl) item.classList.add('active');
       if (isFavorite(ch.url)) item.classList.add('favorited');
 
@@ -506,15 +509,30 @@
       favSvg.appendChild(path);
       item.appendChild(favSvg);
 
+      const activate = () => {
+        playChannel(ch);
+        if (window.innerWidth <= 900) openPlayerView();
+      };
+
       item.addEventListener('click', (e) => {
         if (e.target.closest('.channel-fav')) {
           toggleFavorite(ch);
           return;
         }
-        playChannel(ch);
-        if (window.innerWidth <= 900) {
-          openPlayerView();
+        activate();
+      });
+
+      item.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ' || e.key === 'OK' || e.key === 'Accept') {
+          e.preventDefault();
+          activate();
         }
+      });
+
+      item.addEventListener('focus', () => {
+        $$('.channel-item.tv-focused').forEach((el) => el.classList.remove('tv-focused'));
+        item.classList.add('tv-focused');
+        item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       });
 
       frag.appendChild(item);
@@ -522,6 +540,12 @@
 
     els.channelList.innerHTML = '';
     els.channelList.appendChild(frag);
+
+    // Keep focus on active channel after re-render if possible
+    const active = els.channelList.querySelector('.channel-item.active');
+    if (active && document.activeElement?.classList?.contains('channel-item')) {
+      active.focus({ preventScroll: true });
+    }
   }
 
   function createPlaceholder(name) {
@@ -1079,29 +1103,85 @@
       else els.video.pause();
     }
     if (e.key === 'f') els.fullscreenBtn.click();
-    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-      e.preventDefault();
-      if (state.filtered.length === 0) return;
-      let next = state.filtered.findIndex((c) => c.url === state.currentChannel?.url);
-      if (next < 0) next = 0;
-      else next = e.key === 'ArrowDown' ? (next + 1) % state.filtered.length : (next - 1 + state.filtered.length) % state.filtered.length;
-      playChannel(state.filtered[next]);
-      scrollActiveChannelIntoView();
+    // TV / remote navigation
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', ' ', 'PageUp', 'PageDown'].includes(e.key)) {
+      document.body.classList.add('tv-nav');
     }
+
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      const items = [...(els.channelList?.querySelectorAll('.channel-item') || [])];
+      if (!items.length) return;
+
+      const focusedItem = document.activeElement?.classList?.contains('channel-item')
+        ? document.activeElement
+        : els.channelList.querySelector('.channel-item.tv-focused') || els.channelList.querySelector('.channel-item.active');
+
+      // Focus-move mode (remote): move highlight without autoplay
+      if (focusedItem || e.target === document.body || e.target === document.documentElement || e.target === els.channelList) {
+        e.preventDefault();
+        let idx = focusedItem ? items.indexOf(focusedItem) : items.findIndex((el) => el.classList.contains('active'));
+        if (idx < 0) idx = 0;
+        else idx = e.key === 'ArrowDown' ? Math.min(items.length - 1, idx + 1) : Math.max(0, idx - 1);
+        items[idx].focus({ preventScroll: false });
+        return;
+      }
+    }
+
+    if (e.key === 'ArrowLeft') {
+      // Move focus to sidebar / channel list
+      if (!els.sidebar.classList.contains('sidebar-hidden')) {
+        e.preventDefault();
+        const target = els.channelList.querySelector('.channel-item.tv-focused, .channel-item.active, .channel-item');
+        target?.focus();
+      }
+    }
+
+    if (e.key === 'ArrowRight') {
+      // Move focus to player actions
+      if (els.favBtn && !els.favBtn.disabled) {
+        e.preventDefault();
+        els.favBtn.focus();
+      }
+    }
+
+    if (e.key === 'Enter' || e.key === ' ') {
+      const focused = document.activeElement;
+      if (focused?.classList?.contains('channel-item')) {
+        e.preventDefault();
+        focused.click();
+        return;
+      }
+    }
+
     if (e.key === 'PageDown' || e.key === 'PageUp') {
       e.preventDefault();
-      const list = els.channelList;
-      if (list) {
-        const delta = Math.floor(list.clientHeight * 0.85) * (e.key === 'PageDown' ? 1 : -1);
-        list.scrollBy({ top: delta, behavior: 'smooth' });
+      const items = [...(els.channelList?.querySelectorAll('.channel-item') || [])];
+      if (items.length) {
+        const focused = document.activeElement?.classList?.contains('channel-item')
+          ? document.activeElement
+          : items.find((el) => el.classList.contains('tv-focused')) || items[0];
+        let idx = items.indexOf(focused);
+        if (idx < 0) idx = 0;
+        const step = Math.max(3, Math.floor((els.channelList.clientHeight || 400) / 64));
+        idx = e.key === 'PageDown' ? Math.min(items.length - 1, idx + step) : Math.max(0, idx - step);
+        items[idx].focus();
+      } else if (els.channelList) {
+        const delta = Math.floor(els.channelList.clientHeight * 0.85) * (e.key === 'PageDown' ? 1 : -1);
+        els.channelList.scrollBy({ top: delta, behavior: 'smooth' });
       }
     }
     if (e.key === 'l' || e.key === 'L') {
-      // Toggle channel list panel (TV-friendly)
       toggleSidebarHidden();
     }
     if (e.key === 'm' || e.key === 'M') {
       toggleSidebarCompact();
+    }
+    // Back / Escape: show sidebar if hidden
+    if (e.key === 'Escape' || e.key === 'Backspace') {
+      if (els.sidebar.classList.contains('sidebar-hidden')) {
+        e.preventDefault();
+        toggleSidebarHidden(true);
+      }
     }
   });
 

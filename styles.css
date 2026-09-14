@@ -314,6 +314,38 @@ html, body {
   transform: scale(0.96);
 }
 
+.preset-btn-accent {
+  background: var(--accent);
+  color: #fff;
+}
+
+.preset-btn-accent:hover {
+  background: var(--accent-hover);
+  color: #fff;
+}
+
+/* TV remote focus */
+.channel-item {
+  outline: none;
+}
+
+.channel-item.tv-focused,
+.channel-item:focus {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 3px var(--accent);
+}
+
+.tv-focused {
+  outline: 3px solid var(--accent) !important;
+  outline-offset: 2px;
+  position: relative;
+  z-index: 1;
+}
+
+body.tv-nav .channel-item {
+  cursor: default;
+}
+
 .search-box {
   position: relative;
   display: flex;
