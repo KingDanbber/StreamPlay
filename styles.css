@@ -131,6 +131,7 @@ html, body {
 .main-layout {
   display: flex;
   flex: 1;
+  min-height: 0;
   overflow: hidden;
   position: relative;
 }
@@ -139,12 +140,25 @@ html, body {
 .sidebar {
   width: var(--sidebar-w);
   min-width: var(--sidebar-w);
+  max-width: var(--sidebar-w);
+  height: 100%;
+  min-height: 0;
   background: var(--bg-secondary);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   z-index: 40;
-  transition: transform 0.3s ease;
+  transition: transform 0.3s ease, width 0.25s ease, min-width 0.25s ease, max-width 0.25s ease, opacity 0.25s ease;
+  overflow: hidden;
+}
+
+.sidebar.sidebar-hidden {
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+  border: none;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .sidebar-header {
@@ -154,6 +168,38 @@ html, body {
   flex-direction: column;
   gap: 10px;
   flex-shrink: 0;
+  min-height: 0;
+}
+
+.sidebar-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.toolbar-toggle {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent);
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.toolbar-toggle:hover {
+  background: var(--accent-soft);
+}
+
+.sidebar-extras {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+
+.sidebar.compact .sidebar-extras {
+  display: none;
 }
 
 .load-section {
@@ -619,13 +665,60 @@ html, body {
   cursor: pointer;
 }
 
-/* Channel List */
+/* Channel List — min-height:0 is critical for scroll inside flex layouts */
 .channel-list {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   padding: 8px;
+  scrollbar-gutter: stable;
+}
+
+.channel-list:focus {
+  outline: none;
+}
+
+.channel-item:focus-visible,
+.view-tab:focus-visible,
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible,
+.btn-icon:focus-visible,
+.preset-btn:focus-visible,
+.saved-item:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.show-sidebar-fab {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 999px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.show-sidebar-fab[hidden] {
+  display: none !important;
+}
+
+.show-sidebar-fab:hover {
+  background: var(--bg-hover);
 }
 
 .empty-state {
@@ -746,7 +839,9 @@ html, body {
   flex-direction: column;
   background: var(--bg-primary);
   min-width: 0;
+  min-height: 0;
   overflow: hidden;
+  position: relative;
 }
 
 .video-container {
@@ -1296,7 +1391,7 @@ html, body {
 
 /* Scrollbar */
 .channel-list::-webkit-scrollbar {
-  width: 6px;
+  width: 10px;
 }
 
 .channel-list::-webkit-scrollbar-track {
@@ -1305,9 +1400,71 @@ html, body {
 
 .channel-list::-webkit-scrollbar-thumb {
   background: var(--border);
-  border-radius: 3px;
+  border-radius: 5px;
 }
 
 .channel-list::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
+}
+
+/* ===== TV / large screen (10-foot UI) ===== */
+@media (min-width: 1200px) {
+  :root {
+    --sidebar-w: 400px;
+  }
+
+  .channel-item {
+    padding: 14px 16px;
+    min-height: 64px;
+    gap: 14px;
+  }
+
+  .channel-name {
+    font-size: 1rem;
+  }
+
+  .channel-group {
+    font-size: 0.85rem;
+  }
+
+  .channel-logo,
+  .channel-logo-placeholder {
+    width: 48px;
+    height: 48px;
+  }
+
+  .view-tab {
+    height: 42px;
+    font-size: 0.85rem;
+  }
+
+  .channel-list::-webkit-scrollbar {
+    width: 12px;
+  }
+}
+
+/* Prefer even larger targets when no hover (typical TVs / set-top) */
+@media (min-width: 900px) and (hover: none) {
+  :root {
+    --sidebar-w: 420px;
+  }
+
+  .channel-item {
+    min-height: 72px;
+    padding: 16px 18px;
+  }
+
+  .channel-name {
+    font-size: 1.1rem;
+  }
+
+  .btn-icon {
+    width: 48px;
+    height: 48px;
+  }
+
+  .view-tab {
+    height: 48px;
+    font-size: 0.9rem;
+  }
 }

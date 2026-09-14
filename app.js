@@ -115,6 +115,9 @@
     qualitySelect: $('#qualitySelect'),
     audioSelect: $('#audioSelect'),
     channelList: $('#channelList'),
+    compactSidebarBtn: $('#compactSidebarBtn'),
+    hideSidebarBtn: $('#hideSidebarBtn'),
+    showSidebarBtn: $('#showSidebarBtn'),
     emptyState: $('#emptyState'),
     video: $('#videoPlayer'),
     videoContainer: $('#videoContainer'),
@@ -1083,6 +1086,22 @@
       if (next < 0) next = 0;
       else next = e.key === 'ArrowDown' ? (next + 1) % state.filtered.length : (next - 1 + state.filtered.length) % state.filtered.length;
       playChannel(state.filtered[next]);
+      scrollActiveChannelIntoView();
+    }
+    if (e.key === 'PageDown' || e.key === 'PageUp') {
+      e.preventDefault();
+      const list = els.channelList;
+      if (list) {
+        const delta = Math.floor(list.clientHeight * 0.85) * (e.key === 'PageDown' ? 1 : -1);
+        list.scrollBy({ top: delta, behavior: 'smooth' });
+      }
+    }
+    if (e.key === 'l' || e.key === 'L') {
+      // Toggle channel list panel (TV-friendly)
+      toggleSidebarHidden();
+    }
+    if (e.key === 'm' || e.key === 'M') {
+      toggleSidebarCompact();
     }
   });
 
@@ -1214,6 +1233,47 @@
     if (els.installBtn) els.installBtn.hidden = true;
     showToast('StreamPlay instalada correctamente');
   });
+
+  function scrollActiveChannelIntoView() {
+    const active = els.channelList?.querySelector('.channel-item.active');
+    if (active) active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+
+  function toggleSidebarCompact() {
+    const on = els.sidebar.classList.toggle('compact');
+    if (els.compactSidebarBtn) {
+      els.compactSidebarBtn.textContent = on ? 'Mostrar controles' : 'Maximizar lista';
+    }
+    localStorage.setItem('sp_sidebar_compact', on ? '1' : '0');
+    showToast(on ? 'Lista maximizada' : 'Controles visibles');
+  }
+
+  function toggleSidebarHidden(forceShow) {
+    // forceShow true => show panel; false => hide; undefined => toggle
+    let willHide;
+    if (forceShow === true) willHide = false;
+    else if (forceShow === false) willHide = true;
+    else willHide = !els.sidebar.classList.contains('sidebar-hidden');
+
+    els.sidebar.classList.toggle('sidebar-hidden', willHide);
+    if (els.showSidebarBtn) els.showSidebarBtn.hidden = !willHide;
+    if (els.hideSidebarBtn) els.hideSidebarBtn.textContent = willHide ? 'Mostrar panel' : 'Solo vídeo';
+    localStorage.setItem('sp_sidebar_hidden', willHide ? '1' : '0');
+  }
+
+  els.compactSidebarBtn?.addEventListener('click', toggleSidebarCompact);
+  els.hideSidebarBtn?.addEventListener('click', () => toggleSidebarHidden());
+  els.showSidebarBtn?.addEventListener('click', () => toggleSidebarHidden(true));
+
+  // Restore TV layout prefs
+  if (localStorage.getItem('sp_sidebar_compact') === '1') {
+    els.sidebar.classList.add('compact');
+    if (els.compactSidebarBtn) els.compactSidebarBtn.textContent = 'Mostrar controles';
+  }
+  if (localStorage.getItem('sp_sidebar_hidden') === '1') {
+    els.sidebar.classList.add('sidebar-hidden');
+    if (els.showSidebarBtn) els.showSidebarBtn.hidden = false;
+  }
 
   // Initial empty state — force clean UI
   els.emptyState.hidden = false;
